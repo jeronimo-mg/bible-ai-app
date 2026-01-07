@@ -31,15 +31,20 @@ export function AIChat() {
             // For now, simple chat.
             // Using gemma-3-27b-it as requested (and verified available).
             const model = genAI.getGenerativeModel({
-                model: "gemma-3-27b-it",
-                systemInstruction: "Você é um assistente de estudos bíblicos focado e erudito. Suas respostas devem ser estritamente baseadas na Bíblia, teologia cristã e contexto histórico bíblico. \n\nREGRAS RÍGIDAS:\n1. NÃO mencione pessoas, atores, atletas ou celebridades modernas (ex: Mateus Carrieri, Mateus Ueta), a menos que o usuário ESPECIFICAMENTE pergunte por eles.\n2. Ao responder sobre nomes bíblicos (ex: Mateus), foque APENAS nas figuras bíblicas (O Apóstolo, etc).\n3. Mantenha um tom respeitoso e educativo.\n4. Se a pergunta for ambígua, assuma SEMPRE o contexto bíblico."
+                model: "gemma-3-27b-it"
             });
 
+            const systemPrompt = "Você é um assistente de estudos bíblicos focado e erudito. Suas respostas devem ser estritamente baseadas na Bíblia, teologia cristã e contexto histórico bíblico. \n\nREGRAS RÍGIDAS:\n1. NÃO mencione pessoas, atores, atletas ou celebridades modernas (ex: Mateus Carrieri, Mateus Ueta), a menos que o usuário ESPECIFICAMENTE pergunte por eles.\n2. Ao responder sobre nomes bíblicos (ex: Mateus), foque APENAS nas figuras bíblicas (O Apóstolo, etc).\n3. Mantenha um tom respeitoso e educativo.\n4. Se a pergunta for ambígua, assuma SEMPRE o contexto bíblico.";
+
             const chat = model.startChat({
-                history: messages.map(m => ({
-                    role: m.role,
-                    parts: [{ text: m.text }]
-                })),
+                history: [
+                    { role: 'user', parts: [{ text: systemPrompt }] },
+                    { role: 'model', parts: [{ text: "Entendido. Serei um assistente bíblico focado e não mencionarei figuras modernas irrelevantes." }] },
+                    ...messages.map(m => ({
+                        role: m.role,
+                        parts: [{ text: m.text }]
+                    }))
+                ],
             });
 
             const result = await chat.sendMessage(input);
@@ -48,8 +53,15 @@ export function AIChat() {
 
             setMessages(prev => [...prev, { role: 'model', text }]);
         } catch (error: any) {
-            console.error(error);
-            setMessages(prev => [...prev, { role: 'model', text: "Erro ao conectar com a IA." }]);
+            console.error("Original Error Object:", error);
+            console.error("Error Details:", error.message || JSON.stringify(error));
+            if (error.response) {
+                console.error("API Status:", error.response.status);
+            }
+            // Check if key is loaded (don't log the full key)
+            console.log("API Key loaded?", !!API_KEY, "Length:", API_KEY?.length);
+
+            setMessages(prev => [...prev, { role: 'model', text: `Erro: ${error.message || "Falha na conexão"}` }]);
         } finally {
             setLoading(false);
         }

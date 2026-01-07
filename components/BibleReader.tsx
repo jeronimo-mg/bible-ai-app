@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Button } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Button, ActivityIndicator, Modal } from 'react-native';
 import * as Speech from 'expo-speech';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import bibleData from '../assets/bible_data.json';
 
 // Basic types based on our JSON structure
@@ -15,11 +16,20 @@ interface BibleData {
 
 const data = bibleData as BibleData;
 
+// Initialize Gemini for commentary
+const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY as string;
+const genAI = new GoogleGenerativeAI(API_KEY);
+
 export function BibleReader() {
     const [currentBookIndex, setCurrentBookIndex] = useState(0);
     const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
     const [view, setView] = useState<'books' | 'chapters' | 'text'>('books');
     const [isSpeaking, setIsSpeaking] = useState(false);
+
+    // Commentary State
+    const [selectedVerse, setSelectedVerse] = useState<{ text: string, index: number } | null>(null);
+    const [explanation, setExplanation] = useState('');
+    const [loadingExplanation, setLoadingExplanation] = useState(false);
 
     const currentBook = data.books[currentBookIndex];
     const currentChapter = currentBook?.chapters[currentChapterIndex] || [];
@@ -53,6 +63,32 @@ export function BibleReader() {
     const stopSpeaking = () => {
         Speech.stop();
         setIsSpeaking(false);
+    };
+
+    const handleVersePress = async (verse: string, index: number) => {
+        setSelectedVerse({ text: verse, index });
+        setLoadingExplanation(true);
+        setExplanation('');
+
+        try {
+            // Using the faster/lighter model for quick commentary
+            const model = genAI.getGenerativeModel({ model: "gemma-3-1b-it" });
+            const prompt = `Explique brevemente (máximo 2 frases) o seguinte versículo bíblico, focando na teologia ou contexto histórico de forma simples: "${verse}"`;
+
+            const result = await model.generateContent(prompt);
+            const text = await result.response.text();
+            setExplanation(text);
+        } catch (error) {
+            setExplanation("Não foi possível carregar o comentário. Verifique sua conexão.");
+            console.error(error);
+        } finally {
+            setLoadingExplanation(false);
+        }
+    };
+
+    const closeCommentary = () => {
+        setSelectedVerse(null);
+        setExplanation('');
     };
 
     if (view === 'books') {
@@ -108,13 +144,45 @@ export function BibleReader() {
             </View>
             <ScrollView className="flex-1 p-4 pb-10">
                 {currentChapter.map((verse, index) => (
-                    <Text key={index} className="text-lg leading-8 text-slate-700 mb-2">
-                        <Text className="font-bold text-xs text-slate-400 mr-1">{index + 1} </Text>
-                        {verse.replace(/^\d+\s*/, '')}
-                    </Text>
+                    <TouchableOpacity
+                        key={index}
+                        onPress={() => handleVersePress(verse, index)}
+                        className={`mb-2 rounded-lg p-2 ${selectedVerse?.index === index ? 'bg-blue-50 border border-blue-200' : ''}`}
+                    >
+                        <Text className="text-lg leading-8 text-slate-700">
+                            <Text className="font-bold text-xs text-slate-400 mr-1">{index + 1} </Text>
+                            {verse.replace(/^\d+\s*/, '')}
+                        </Text>
+                    </TouchableOpacity>
                 ))}
-                <View className="h-20" />
+                <View className="h-48" />
             </ScrollView>
-        </View>
+
+            {/* Commentary Bottom Sheet / Modal */}
+            {
+                selectedVerse && (
+                    <View className="absolute bottom-0 left-0 right-0 bg-white border-t-2 border-slate-200 p-4 shadow-lg h-1/3">
+                        <View className="flex-row justify-between items-center mb-2">
+                            <Text className="font-bold text-slate-500">Comentário IA (Gemma 3 1B)</Text>
+                            <TouchableOpacity onPress={closeCommentary}>
+                                <Text className="text-blue-600 font-bold">Fechar</Text>
+                            </TouchableOpacity>
+                        </View>
+                        {loadingExplanation ? (
+                            <View className="flex-1 justify-center items-center">
+                                <ActivityIndicator size="small" color="#2563eb" />
+                                <Text className="text-slate-400 mt-2">Gerando explicação...</Text>
+                            </View>
+                        ) : (
+                            <ScrollView>
+                                <Text className="text-slate-800 text-base italic leading-6">
+                                    "{explanation}"
+                                </Text>
+                            </ScrollView>
+                        )}
+                    </View>
+                )
+            }
+        </View >
     );
 }
