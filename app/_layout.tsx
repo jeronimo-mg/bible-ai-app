@@ -1,4 +1,5 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { BibleProvider } from '@/context/BibleContext';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
@@ -57,36 +58,38 @@ export default function RootLayout() {
   }
 
   return (
-    <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
+    <BibleProvider>
+      <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
 
-      {/* Custom Splash Overlay for the Fade Effect */}
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: Dimensions.get('window').width,
-          height: Dimensions.get('window').height,
-          backgroundColor: '#ffffff', // Match your splash background color
-          opacity: fadeAnim,
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 9999,
-        }}
-      >
-        <Image
-          source={require('../assets/images/splash-icon.png')}
-          style={{ width: 200, height: 200, resizeMode: 'contain' }}
-        />
-      </Animated.View>
-    </View>
+        {/* Custom Splash Overlay for the Fade Effect */}
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: Dimensions.get('window').width,
+            height: Dimensions.get('window').height,
+            backgroundColor: '#ffffff', // Match your splash background color
+            opacity: fadeAnim,
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999,
+          }}
+        >
+          <Image
+            source={require('../assets/images/splash-icon.png')}
+            style={{ width: 200, height: 200, resizeMode: 'contain' }}
+          />
+        </Animated.View>
+      </View>
+    </BibleProvider>
   );
 }
