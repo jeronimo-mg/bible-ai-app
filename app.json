@@ -2,14 +2,15 @@
   "expo": {
     "name": "bible-ai-app",
     "slug": "bible-ai-app",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "bibleaiapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bibleaiapp"
     },
     "android": {
       "adaptiveIcon": {
