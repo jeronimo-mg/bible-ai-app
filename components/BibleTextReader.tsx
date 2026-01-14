@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Button, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Speech from 'expo-speech';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import bibleData from '../assets/bible_data.json';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useBibleContext } from '@/context/BibleContext';
-import { GeminiLiveClient } from '../utils/GeminiLiveClient';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import * as Speech from 'expo-speech';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import bibleData from '../assets/bible_data.json';
 
 interface BibleBook {
     name: string;
@@ -45,55 +44,10 @@ export function BibleTextReader() {
 
     const fullChapterText = currentChapter.map((verse, index) => `${index + 1}. ${verse.replace(/^\d+\s*/, '')}`).join('\n');
 
-    // LIVE API Integration
-    const liveClient = useRef<GeminiLiveClient | null>(null);
-
-    const initLiveClient = () => {
-        if (liveClient.current) return;
-
-        setChatMessages(prev => [...prev, { role: 'model', text: "🔄 Iniciando conexão WebSocket..." }]);
-
-        liveClient.current = new GeminiLiveClient(API_KEY, {
-            onOpen: () => {
-                console.log("Live WebSocket Connected");
-                setChatMessages(prev => [...prev, { role: 'model', text: "✅ Conectado ao servidor!" }]);
-            },
-            onError: (e) => {
-                console.error("Live WebSocket Error", e);
-                setLoadingChat(false);
-                setChatMessages(prev => [...prev, { role: 'model', text: `❌ Erro WebSocket: ${JSON.stringify(e)}` }]);
-            },
-            onClose: (e) => {
-                console.log("WebSocket Closed", e);
-                setChatMessages(prev => [...prev, { role: 'model', text: `🔌 Conexão Fechada (Code: ${e.code})` }]);
-            },
-            onMessage: (text, isFinal) => {
-                if (text) {
-                    setChatMessages(prev => {
-                        const lastMsg = prev[prev.length - 1];
-                        const isLog = lastMsg?.text.startsWith('🔄') || lastMsg?.text.startsWith('✅') || lastMsg?.text.startsWith('🔌') || lastMsg?.text.startsWith('❌');
-
-                        if (lastMsg && lastMsg.role === 'model' && !isLog) {
-                            return [
-                                ...prev.slice(0, prev.length - 1),
-                                { ...lastMsg, text: lastMsg.text + text }
-                            ];
-                        } else {
-                            return [...prev, { role: 'model', text }];
-                        }
-                    });
-                }
-                if (isFinal) setLoadingChat(false);
-            }
-        });
-        liveClient.current.connect();
-    };
-
     useEffect(() => {
         return () => {
             Speech.stop();
             if (selectionTimer) clearTimeout(selectionTimer);
-            if (liveClient.current) liveClient.current.disconnect();
         };
     }, []);
 
@@ -156,12 +110,11 @@ export function BibleTextReader() {
         setChatInput('');
 
         try {
-            // Using Gemini 3 Flash Preview (validated via script)
-            const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+            const model = genAI.getGenerativeModel({ model: "gemma-3-27b-it" });
 
             let prompt = `
 Contexto: ${currentBook.name} Capítulo ${currentChapterIndex + 1}
-Texto Completo (referência):
+Texto Completo:
 """
 ${fullChapterText}
 """
@@ -196,13 +149,10 @@ Instrução: Explique o que "${text}" significa EM ${reference}. Máximo 3 frase
         setLoadingChat(true);
 
         try {
-            const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
-
+            const model = genAI.getGenerativeModel({ model: "gemma-3-27b-it" });
             let contextPrompt = "";
             if (selectedVerse) {
-                // Reuse existing chat history for context if possible, but standard API is stateless unless chat session is managed.
-                // For simplicity/robustness here, we rebuild context or just start a chat.
-                contextPrompt = `Contexto: Usuário estudando: "${selectedVerse.text}".\nHistórico Recente: ${JSON.stringify(chatMessages)}`;
+                contextPrompt = `Contexto: Usuário estudando: "${selectedVerse.text}".\nHistórico: ${JSON.stringify(chatMessages)}`;
             } else {
                 contextPrompt = `Contexto: Usuário lendo ${currentBook.name} Capítulo ${currentChapterIndex + 1}. Texto: "${fullChapterText.substring(0, 5000)}..."\nPergunta geral.`;
             }
@@ -210,7 +160,7 @@ Instrução: Explique o que "${text}" significa EM ${reference}. Máximo 3 frase
             const chat = model.startChat({
                 history: [
                     { role: 'user', parts: [{ text: contextPrompt }] },
-                    { role: 'model', parts: [{ text: "Entendido. Estou pronto para ajudar com o estudo bíblico." }] }
+                    { role: 'model', parts: [{ text: "Entendido." }] }
                 ]
             });
 
